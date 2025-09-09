@@ -1,5 +1,5 @@
 # 修改默认IP & 固件名称 & 编译署名
-sed -i 's/192.168.1.1/192.168.20.1/g' package/base-files/files/bin/config_generate
+sed -i 's/192.168.1.1/192.168.68.1/g' package/base-files/files/bin/config_generate
 sed -i "s/hostname='.*'/hostname='JDBox_Arthur'/g" package/base-files/files/bin/config_generate
 sed -i "s/(\(luciversion || ''\))/(\1) + (' \/ Built by AK')/g" feeds/luci/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/10_system.js
 
@@ -18,6 +18,8 @@ rm -rf feeds/packages/net/adguardhome
 rm -rf feeds/packages/net/ariang
 rm -rf feeds/packages/net/frp
 rm -rf feeds/packages/lang/golang
+rm -rf feeds/packages/openlist
+
 
 # Git稀疏克隆，只克隆指定目录到本地
 function git_sparse_clone() {
