@@ -8,7 +8,7 @@ on:
 jobs:
 
     IPQ60XX-LibWrt:
-      uses: ./.github/workflows/IPQ60XX-LibWrt.yml
+      uses: ./.github/workflows/IPQ60.yml
 
     All-Clean:
       uses: ./.github/workflows/All-Clean.yml
