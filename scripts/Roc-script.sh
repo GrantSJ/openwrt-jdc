@@ -48,5 +48,116 @@ git clone --depth=1 https://github.com/lwb1978/openwrt-gecoosac package/openwrt-
 git clone --depth=1 https://github.com/NONGFAH/luci-app-athena-led package/luci-app-athena-led
 chmod +x package/luci-app-athena-led/root/etc/init.d/athena_led package/luci-app-athena-led/root/usr/sbin/athena-led
 
+
+wlan_name="OpenWrt"
+wlan_name_5G="OpenWrt-5G"
+wlan_password="1234567890"
+root_password="root"
+lan_ip_address="192.168.18.1"
+
+if [ -n "$root_password" ]; then
+  (echo "$root_password"; sleep 1; echo "$root_password") | passwd > /dev/null
+fi
+
+# Configure LAN
+# More options: https://openwrt.org/docs/guide-user/base-system/basic-networking
+if [ -n "$lan_ip_address" ]; then
+  uci set network.lan.ipaddr="$lan_ip_address"
+  uci commit network
+fi
+
+# Configure WLAN
+# More options: https://openwrt.org/docs/guide-user/network/wifi/basic#wi-fi_interfaces
+if [ -n "$wlan_name" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
+  uci set wireless.@wifi-device[1].disabled='0'
+  uci set wireless.@wifi-iface[1].disabled='0'
+  uci set wireless.@wifi-device[1].channel='1'
+  uci set wireless.@wifi-iface[1].encryption='psk2'
+  uci set wireless.@wifi-iface[1].ssid="$wlan_name"
+  uci set wireless.@wifi-iface[1].key="$wlan_password"
+  uci commit wireless
+fi
+
+if [ -n "$wlan_name_5G" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
+  uci set wireless.@wifi-device[0].disabled='0'
+  uci set wireless.@wifi-iface[0].disabled='0'
+  uci set wireless.@wifi-device[0].channel='36'
+#  uci set wireless.@wifi-device[0].htmode='VHT80'
+  uci set wireless.@wifi-iface[0].encryption='psk2'
+  uci set wireless.@wifi-iface[0].ssid="$wlan_name_5G"
+  uci set wireless.@wifi-iface[0].key="$wlan_password"
+  uci commit wireless
+fi
+
+# Configure USB WAN (usbwan / usbwan6)
+# 默认设备
+DEV="usb0"
+# 开机时检测设备
+if ip link show usb0 >/dev/null 2>&1; then
+    DEV=usb0
+elif ip link show eth0 >/dev/null 2>&1; then
+    DEV=eth0
+fi
+
+# 创建接口
+uci set network.wanusb="interface"
+uci set network.wanusb.proto="dhcp"
+uci set network.wanusb.device="$DEV"
+
+uci set network.wanusb6="interface"
+uci set network.wanusb6.proto="dhcpv6"
+uci set network.wanusb6.device="$DEV"
+uci commit network
+
+# Add wanusb / wanusb6 to firewall zone 'wan'
+WAN_ZONE=$(uci show firewall | grep "=zone" | cut -d. -f2 | cut -d= -f1 | while read z; do
+    [ "$(uci get firewall.$z.name)" = "wan" ] && echo $z
+done)
+
+if [ -n "$WAN_ZONE" ]; then
+    uci add_list firewall.$WAN_ZONE.network="wanusb"
+    uci add_list firewall.$WAN_ZONE.network="wanusb6"
+    uci commit firewall
+fi
+
+# 写入 hotplug 脚本
+mkdir -p /etc/hotplug.d/net
+cat > /etc/hotplug.d/net/99-usbwan << "EOF"
+#!/bin/sh
+case "$ACTION" in
+    add)
+        sleep 3
+        if ip link show usb0 >/dev/null 2>&1; then
+            DEV=usb0
+        elif ip link show eth0 >/dev/null 2>&1; then
+            DEV=eth0
+        else
+            exit 0
+        fi
+        ;;
+    remove)
+        if ip link show usb0 >/dev/null 2>&1; then
+            DEV=usb0
+        elif ip link show eth0 >/dev/null 2>&1; then
+            DEV=eth0
+        else
+            exit 0
+        fi
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+uci set network.wanusb.device="$DEV"
+uci set network.wanusb6.device="$DEV"
+uci commit network
+/etc/init.d/network reload
+# logger -t usbwan "WAN switched to $DEV (after 3s delay)"
+EOF
+
+chmod +x /etc/hotplug.d/net/99-usbwan
+
+
 ./scripts/feeds update -a
 ./scripts/feeds install -a
