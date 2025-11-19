@@ -138,8 +138,8 @@ jobs:
         fi
 
         ### Configure WLAN
-        wlan_name="JDCwifi"
-        wlan_name_5G="JDCwifi-5G"
+        wlan_name="OpenWrt"
+        wlan_name_5G="OpenWrt-5G"
         wlan_password="1234567890"
         
         # 2.4G
