@@ -109,6 +109,69 @@ jobs:
         # 运行自定义脚本
         $GITHUB_WORKSPACE/$DIY_SCRIPT
 
+    - name: Add custom network and WLAN defaults
+      run: |
+        mkdir -p $OPENWRT_PATH/files/etc/uci-defaults
+        cat > $OPENWRT_PATH/files/etc/uci-defaults/99-custom-network << "EOF"
+        #!/bin/sh
+        #!/bin/sh
+        # Custom default configuration for OpenWrt
+        # 包含 USB WAN 和 WLAN 配置
+        ### Configure USB WAN (usbwan / usbwan6)
+        uci set network.wanusb="interface"
+        uci set network.wanusb.proto="dhcp"
+        uci set network.wanusb.device="usb0"
+        
+        uci set network.wanusb6="interface"
+        uci set network.wanusb6.proto="dhcpv6"
+        uci set network.wanusb6.device="usb0"
+        uci commit network
+        
+        # Add wanusb / wanusb6 to firewall zone 'wan'
+        WAN_ZONE=$(uci show firewall | grep "=zone" | cut -d. -f2 | cut -d= -f1 | while read z; do
+            [ "$(uci get firewall.$z.name)" = "wan" ] && echo $z
+        done)
+        if [ -n "$WAN_ZONE" ]; then
+            uci add_list firewall.$WAN_ZONE.network="wanusb"
+            uci add_list firewall.$WAN_ZONE.network="wanusb6"
+            uci commit firewall
+        fi
+
+        ### Configure WLAN
+        wlan_name="JDCwifi"
+        wlan_name_5G="JDCwifi-5G"
+        wlan_password="1234567890"
+        
+        # 2.4G
+        if [ -n "$wlan_name" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
+          uci set wireless.@wifi-device[0].disabled='0'
+          uci set wireless.@wifi-iface[0].disabled='0'
+          uci set wireless.@wifi-device[0].channel='auto'
+          uci set wireless.@wifi-iface[0].encryption='psk2'
+          uci set wireless.@wifi-iface[0].ssid="$wlan_name"
+          uci set wireless.@wifi-iface[0].key="$wlan_password"
+          uci commit wireless
+        fi
+        
+        # 5G
+        if [ -n "$wlan_name_5G" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
+          uci set wireless.@wifi-device[1].disabled='0'
+          uci set wireless.@wifi-iface[1].disabled='0'
+          uci set wireless.@wifi-device[1].channel='52'
+          uci set wireless.@wifi-device[1].htmode='VHT80'
+          uci set wireless.@wifi-iface[1].encryption='psk2'
+          uci set wireless.@wifi-iface[1].ssid="$wlan_name_5G"
+          uci set wireless.@wifi-iface[1].key="$wlan_password"
+          uci commit wireless
+        fi
+        
+        exit 0
+
+        EOF
+        chmod +x $OPENWRT_PATH/files/etc/uci-defaults/99-custom-network
+
+
+
 
     - name: Download DL Package(下载DL软件包)
       run: |
