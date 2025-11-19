@@ -113,10 +113,12 @@ jobs:
       run: |
         mkdir -p $OPENWRT_PATH/files/etc/uci-defaults
         cat > $OPENWRT_PATH/files/etc/uci-defaults/99-custom-network << "EOF"
-        #!/bin/sh
+        
+        
         #!/bin/sh
         # Custom default configuration for OpenWrt
         # 包含 USB WAN 和 WLAN 配置
+        
         ### Configure USB WAN (usbwan / usbwan6)
         uci set network.wanusb="interface"
         uci set network.wanusb.proto="dhcp"
@@ -136,17 +138,17 @@ jobs:
             uci add_list firewall.$WAN_ZONE.network="wanusb6"
             uci commit firewall
         fi
-
+        
         ### Configure WLAN
-        wlan_name="JDCwifi"
-        wlan_name_5G="JDCwifi-5G"
+        wlan_name="OpenWrt"
+        wlan_name_5G="OpenWrt-5G"
         wlan_password="1234567890"
         
         # 2.4G
         if [ -n "$wlan_name" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
           uci set wireless.@wifi-device[0].disabled='0'
           uci set wireless.@wifi-iface[0].disabled='0'
-          uci set wireless.@wifi-device[0].channel='auto'
+          uci set wireless.@wifi-device[0].channel='1'
           uci set wireless.@wifi-iface[0].encryption='psk2'
           uci set wireless.@wifi-iface[0].ssid="$wlan_name"
           uci set wireless.@wifi-iface[0].key="$wlan_password"
@@ -157,7 +159,7 @@ jobs:
         if [ -n "$wlan_name_5G" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
           uci set wireless.@wifi-device[1].disabled='0'
           uci set wireless.@wifi-iface[1].disabled='0'
-          uci set wireless.@wifi-device[1].channel='52'
+          uci set wireless.@wifi-device[1].channel='36'
           uci set wireless.@wifi-device[1].htmode='VHT80'
           uci set wireless.@wifi-iface[1].encryption='psk2'
           uci set wireless.@wifi-iface[1].ssid="$wlan_name_5G"
@@ -165,13 +167,47 @@ jobs:
           uci commit wireless
         fi
         
+        # 写入 hotplug 脚本
+        mkdir -p /etc/hotplug.d/net
+        cat > /etc/hotplug.d/net/99-usbwan << "EOF2"
+        #!/bin/sh
+        case "$ACTION" in
+            add)
+                sleep 3
+                if ip link show usb0 >/dev/null 2>&1; then
+                    DEV=usb0
+                elif ip link show eth0 >/dev/null 2>&1; then
+                    DEV=eth0
+                else
+                    exit 0
+                fi
+                ;;
+            remove)
+                if ip link show usb0 >/dev/null 2>&1; then
+                    DEV=usb0
+                elif ip link show eth0 >/dev/null 2>&1; then
+                    DEV=eth0
+                else
+                    exit 0
+                fi
+                ;;
+            *)
+                exit 0
+                ;;
+        esac
+        
+        uci set network.wanusb.device="$DEV"
+        uci set network.wanusb6.device="$DEV"
+        uci commit network
+        /etc/init.d/network reload
+        # logger -t usbwan "WAN switched to $DEV (after 3s delay)"
+        EOF2
+        
+        chmod +x /etc/hotplug.d/net/99-usbwan
+        
         exit 0
-
         EOF
         chmod +x $OPENWRT_PATH/files/etc/uci-defaults/99-custom-network
-
-
-
 
     - name: Download DL Package(下载DL软件包)
       run: |
