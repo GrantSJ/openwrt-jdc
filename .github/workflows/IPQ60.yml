@@ -146,7 +146,7 @@ jobs:
         if [ -n "$wlan_name" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
           uci set wireless.@wifi-device[0].disabled='0'
           uci set wireless.@wifi-iface[0].disabled='0'
-          uci set wireless.@wifi-device[0].channel='auto'
+          uci set wireless.@wifi-device[0].channel='1'
           uci set wireless.@wifi-iface[0].encryption='psk2'
           uci set wireless.@wifi-iface[0].ssid="$wlan_name"
           uci set wireless.@wifi-iface[0].key="$wlan_password"
@@ -157,7 +157,7 @@ jobs:
         if [ -n "$wlan_name_5G" -a -n "$wlan_password" -a ${#wlan_password} -ge 8 ]; then
           uci set wireless.@wifi-device[1].disabled='0'
           uci set wireless.@wifi-iface[1].disabled='0'
-          uci set wireless.@wifi-device[1].channel='52'
+          uci set wireless.@wifi-device[1].channel='36'
           uci set wireless.@wifi-device[1].htmode='VHT80'
           uci set wireless.@wifi-iface[1].encryption='psk2'
           uci set wireless.@wifi-iface[1].ssid="$wlan_name_5G"
